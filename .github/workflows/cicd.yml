@@ -93,7 +93,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: http://52.66.177.32:9000
 
-  buils_docker_image_and_push:
+  build_docker_image_and_push:
     permissions:
       contents: read
       id-token: write
@@ -131,7 +131,7 @@ jobs:
 
   deploy_to_kubernetes:
     runs-on: self-hosted
-    needs: buils_docker_image_and_push
+    needs: build_docker_image_and_push
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
