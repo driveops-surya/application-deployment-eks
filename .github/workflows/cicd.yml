@@ -115,6 +115,7 @@ jobs:
         aws-region: ap-south-1
         
     - name: Login to Amazon ECR
+      id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Set up QEMU
@@ -126,7 +127,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: driveops/bankapp:latest
+        tags: ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
         file: ./Dockerfile
 
   deploy_to_kubernetes:
