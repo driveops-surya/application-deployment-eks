@@ -94,6 +94,10 @@ jobs:
           SONAR_HOST_URL: http://52.66.177.32:9000
 
   buils_docker_image_and_push:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     runs-on: self-hosted
     needs: build_project_and_sonar_scan
     steps:
