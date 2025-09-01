@@ -103,12 +103,16 @@ jobs:
       with:
         name: app-jar
         path: app  # this will download JAR to ./app folder
-        
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        username: ${{ vars.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        role-to-assume: arn:aws:iam::323517216838:role/GithubActionsDeployments
+        aws-region: ap-south-1
+        
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
@@ -118,7 +122,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: adijaiswal/bankapp:latest
+        tags: driveops/bankapp:latest
         file: ./Dockerfile
 
   deploy_to_kubernetes:
@@ -132,12 +136,13 @@ jobs:
         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
         unzip awscliv2.zip
         sudo ./aws/install
+
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: arn:aws:iam::323517216838:role/GithubActionsDeployments
         aws-region: ap-south-1
+
     - name: Set up kubectl
       uses: azure/setup-kubectl@v3
       with:
