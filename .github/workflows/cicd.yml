@@ -149,6 +149,12 @@ jobs:
         role-to-assume: arn:aws:iam::323517216838:role/GithubActionsDeployments
         aws-region: ap-south-1
 
+    - name: Configure EKS cluster
+      uses: aws-actions/amazon-eks-setup@v3
+      with:
+        cluster-name: k8s-troubleshooting
+        region: ap-south-1        
+
     - name: Configure kubeconfig
       run: |
         mkdir -p $HOME/.kube
