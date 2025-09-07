@@ -146,7 +146,8 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: arn:aws:iam::323517216838:role/GithubActionsDeployments
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
     - name: Set up kubectl
@@ -154,10 +155,11 @@ jobs:
       with:
         version: latest
         
-    - name: Configure kubeconfig and verify access
+    - name: Configure kubeconfig
       run: |
-        aws eks update-kubeconfig --name k8s-troubleshooting --region ap-south-1
-
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.EKS_KUBECONFIG }}" > $HOME/.kube/config
+        
     - name: Deploy to EKS
       run: |
         kubectl apply -f ds.yml
