@@ -157,12 +157,6 @@ jobs:
     - name: Configure kubeconfig and verify access
       run: |
         aws eks update-kubeconfig --name k8s-troubleshooting --region ap-south-1
-        
-        # Test the kubeconfig
-        echo "Testing kubeconfig access..."
-        kubectl config view
-        kubectl cluster-info
-        kubectl get nodes
 
     - name: Deploy to EKS
       run: |
