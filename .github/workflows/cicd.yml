@@ -156,9 +156,7 @@ jobs:
         
     - name: Configure kubeconfig and verify access
       run: |
-        mkdir -p $HOME/.kube
-        echo "${{ secrets.EKS_KUBECONFIG }}" > $HOME/.kube/config
-        chmod 600 $HOME/.kube/config
+        aws eks update-kubeconfig --name k8s-troubleshooting --region ap-south-1
         
         # Test the kubeconfig
         echo "Testing kubeconfig access..."
