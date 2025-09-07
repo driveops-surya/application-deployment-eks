@@ -148,16 +148,23 @@ jobs:
       with:
         role-to-assume: arn:aws:iam::323517216838:role/GithubActionsDeployments
         aws-region: ap-south-1
-        
+
     - name: Set up kubectl
       uses: azure/setup-kubectl@v3
       with:
-        version: latest        
-
-    - name: Configure kubeconfig
+        version: latest
+        
+    - name: Configure kubeconfig and verify access
       run: |
         mkdir -p $HOME/.kube
         echo "${{ secrets.EKS_KUBECONFIG }}" > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        
+        # Test the kubeconfig
+        echo "Testing kubeconfig access..."
+        kubectl config view
+        kubectl cluster-info
+        kubectl get nodes
 
     - name: Deploy to EKS
       run: |
