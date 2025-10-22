@@ -133,6 +133,20 @@ jobs:
         tags: ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
         file: ./Dockerfile
 
+    - name: Trivy Image Scan
+      run: |
+        echo "Scanning image: ${{ steps.login-ecr.outputs.registry }}/bankapp:latest"
+        trivy image --severity HIGH,CRITICAL \
+                    --format table \
+                    -o trivy-image-report.txt \
+                    ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
+
+    - name: Upload Trivy Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-image-report
+        path: trivy-image-report.txt  
+
   deploy_to_kubernetes:
     runs-on: self-hosted
     permissions:
