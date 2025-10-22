@@ -10,14 +10,23 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK 17
+    - name: Maven: Set up JDK 17 for compilation
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Build with Maven
+    - name: Maven: Compile Java sources
       run: mvn compile
+      
+    - name: Write compile job summary
+      if: always()
+      run: |
+        {
+          echo "## Compile Results"
+          echo "- Maven compile completed"
+          echo "- Check target/ directory for compiled classes"
+        } >> $GITHUB_STEP_SUMMARY
       
   security-check:
     runs-on: self-hosted
@@ -25,7 +34,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Trivy Installation
+    - name: Install Trivy (vulnerability scanner)
       run: |
         sudo apt-get install -y wget apt-transport-https gnupg lsb-release
         wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
@@ -33,27 +42,56 @@ jobs:
         sudo apt-get update -y
         sudo apt-get install -y trivy
 
-    - name: Trivy FS Scan
+    - name: Run Trivy filesystem scan (outputs fs-report.json)
       run: trivy fs --format table -o fs-report.json .
 
-    - name: Gitleaks Installation
+    - name: Install Gitleaks (secret scanner)
       run: sudo apt install gitleaks -y
-    - name: Gitleaks Code Scan
+    - name: Run Gitleaks scan (outputs gitleaks-report.json)
       run: gitleaks detect source . -r gitleaks-report.json -f json
+      
+    - name: Write security job summary
+      if: always()
+      run: |
+        {
+          echo "## Security Scan Results"
+          echo "- Trivy scan report: Check fs-report.json"
+          echo "- Gitleaks scan report: Check gitleaks-report.json"
+          echo "- Note: Review scan reports for any security findings"
+        } >> $GITHUB_STEP_SUMMARY
 
   test:
     runs-on: self-hosted
     needs: security-check
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK 17
+    - name: Maven: Set up JDK 17 for tests
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Unit Test Cases
+    - name: Maven: Run unit tests
       run: mvn test
+      
+    - name: Write test job summary
+      if: always()
+      run: |
+        {
+          echo "## Test Results"
+          echo "### Unit Test Summary"
+          echo "\`\`\`"
+          echo "Total Tests: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@tests)' {} \; | awk '{s+=$1} END {print s}')"
+          echo "Failures: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@failures)' {} \; | awk '{s+=$1} END {print s}')"
+          echo "Errors: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@errors)' {} \; | awk '{s+=$1} END {print s}')"
+          echo "Skipped: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@skipped)' {} \; | awk '{s+=$1} END {print s}')"
+          echo "\`\`\`"
+          echo "### Failed Tests (if any)"
+          echo "\`\`\`"
+          find target/surefire-reports -name '*.xml' -exec sh -c "xmllint --xpath '//testcase[failure or error]/@name' {} 2>/dev/null" \;
+          echo "\`\`\`"
+          echo "Detailed reports available in target/surefire-reports"
+        } >> $GITHUB_STEP_SUMMARY
 
   build_project_and_sonar_scan:
     runs-on: self-hosted
@@ -66,9 +104,9 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Build Project
+    - name: Maven: Package application (JAR)
       run: mvn package
-    - name: Upload JAR artifact
+    - name: Upload application JAR as artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-jar
@@ -92,6 +130,24 @@ jobs:
       env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          
+    - name: Write build and sonar job summary
+      if: always()
+      run: |
+        {
+          echo "## Build and SonarQube Analysis Results"
+          echo "### Maven Build"
+          echo "- JAR artifact uploaded as 'app-jar'"
+          echo "### SonarQube Results"
+          echo "- Analysis URL: ${{ vars.SONAR_HOST_URL }}/dashboard?id=${GITHUB_REPOSITORY##*/}"
+          echo "#### Key Metrics"
+          echo "\`\`\`"
+          echo "Coverage: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=coverage" | jq -r '.component.measures[].value')%"
+          echo "Bugs: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=bugs" | jq -r '.component.measures[].value')"
+          echo "Code Smells: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=code_smells" | jq -r '.component.measures[].value')"
+          echo "Vulnerabilities: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=vulnerabilities" | jq -r '.component.measures[].value')"
+          echo "\`\`\`"
+        } >> $GITHUB_STEP_SUMMARY
 
   build_docker_image_and_push:
     permissions:
@@ -125,13 +181,100 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build and Push Docker image
+    - name: Build Docker image locally first
       uses: docker/build-push-action@v6
       with:
         context: .
-        push: true
-        tags: ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
+        load: true # Build and load locally instead of pushing
+        tags: bankapp:latest
         file: ./Dockerfile
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'bankapp:latest'
+        format: 'template'
+        template: '@/usr/local/share/trivy/templates/html.tpl'
+        output: 'image-scan.html'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'
+
+    - name: Run Trivy for job summary
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'bankapp:latest'
+        format: 'table'
+        output: 'image-scan.txt'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
+        ignore-unfixed: true
+
+    - name: Check vulnerability status
+      id: push-image
+      run: |
+        # Check for CRITICAL vulnerabilities that have available fixes
+        CRITICAL_COUNT=$(grep "CRITICAL" image-scan.txt | grep -v "0" || echo "0")
+        
+        if [ ! -z "$CRITICAL_COUNT" ] && [ "$CRITICAL_COUNT" != "0" ]; then
+          echo "::warning::Found CRITICAL vulnerabilities with fixes available. Review scan results."
+          # Still push but mark as potentially vulnerable
+          docker tag bankapp:latest ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
+          echo "image_status=vulnerable" >> $GITHUB_OUTPUT
+        else
+          docker tag bankapp:latest ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/bankapp:latest
+          echo "image_status=secure" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Upload detailed scan results
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-results
+        path: |
+          image-scan.html
+          image-scan.txt
+        
+    - name: Write Docker build & security summary
+      if: always()
+      run: |
+        {
+          echo "## Docker Build & Security Results"
+          echo "### Build Information"
+          echo "- Image Status: ${{ steps.push-image.outputs.image_status }}"
+          echo "- Image Location: \`${{ steps.login-ecr.outputs.registry }}/bankapp:latest\`"
+          
+          echo "### Image Scan Results"
+          echo "Detailed HTML report uploaded as artifact 'trivy-results'"
+          
+          if [ -f image-scan.txt ]; then
+            echo "#### High & Critical Vulnerabilities"
+            echo "\`\`\`"
+            cat image-scan.txt
+            echo "\`\`\`"
+            
+            # Count vulnerabilities by severity
+            CRIT_COUNT=$(grep "CRITICAL" image-scan.txt | grep -v "0" | wc -l || echo "0")
+            HIGH_COUNT=$(grep "HIGH" image-scan.txt | grep -v "0" | wc -l || echo "0")
+            
+            echo "#### Summary"
+            echo "- Critical vulnerabilities: ${CRIT_COUNT}"
+            echo "- High vulnerabilities: ${HIGH_COUNT}"
+            
+            if [ "${{ steps.push-image.outputs.image_status }}" = "vulnerable" ]; then
+              echo "⚠️ **WARNING**: Image was pushed but contains critical vulnerabilities that should be addressed"
+            else
+              echo "✅ No critical vulnerabilities with available fixes found"
+            fi
+          else
+            echo "⚠️ No scan results available - check job logs for errors"
+          fi
+          
+          echo "### Next Steps"
+          echo "1. Download and review the detailed HTML report from artifacts"
+          echo "2. Check image scan results for any critical vulnerabilities"
+          echo "3. Update base image or dependencies if needed to resolve vulnerabilities"
+        } >> $GITHUB_STEP_SUMMARY
 
   deploy_to_kubernetes:
     runs-on: self-hosted
@@ -164,5 +307,14 @@ jobs:
     - name: Deploy to EKS
       run: |
         kubectl apply -f ds.yml
+        
+    - name: Write deployment summary
+      if: always()
+      run: |
+        {
+          echo "## Deployment Status"
+          echo "- Deployed manifests from ds.yml to EKS cluster"
+          echo "- Check cluster status with: kubectl get pods,svc"
+        } >> $GITHUB_STEP_SUMMARY
 
   
