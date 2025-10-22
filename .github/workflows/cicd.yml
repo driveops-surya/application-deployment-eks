@@ -10,13 +10,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Maven: Set up JDK 17 for compilation
+    - name: Set up JDK 17 for compilation
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Maven: Compile Java sources
+    - name: Compile Java sources
       run: mvn compile
       
     - name: Write compile job summary
@@ -65,13 +65,13 @@ jobs:
     needs: security-check
     steps:
     - uses: actions/checkout@v4
-    - name: Maven: Set up JDK 17 for tests
+    - name: Set up JDK 17 for tests
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Maven: Run unit tests
+    - name: Run unit tests
       run: mvn test
       
     - name: Write test job summary
@@ -104,7 +104,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Maven: Package application (JAR)
+    - name: Package application (JAR)
       run: mvn package
     - name: Upload application JAR as artifact
       uses: actions/upload-artifact@v4
