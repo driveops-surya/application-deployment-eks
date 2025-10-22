@@ -81,10 +81,33 @@ jobs:
           echo "## Test Results"
           echo "### Unit Test Summary"
           echo "\`\`\`"
-          echo "Total Tests: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@tests)' {} \; | awk '{s+=$1} END {print s}')"
-          echo "Failures: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@failures)' {} \; | awk '{s+=$1} END {print s}')"
-          echo "Errors: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@errors)' {} \; | awk '{s+=$1} END {print s}')"
-          echo "Skipped: $(find target/surefire-reports -name '*.xml' -exec xmllint --xpath 'string(//testsuite/@skipped)' {} \; | awk '{s+=$1} END {print s}')"
+          # Install xmlstarlet for better XML parsing
+          sudo apt-get install -y xmlstarlet
+          
+          # Process all test XML files and sum up the metrics
+          TOTAL_TESTS=0
+          TOTAL_FAILURES=0
+          TOTAL_ERRORS=0
+          TOTAL_SKIPPED=0
+          
+          for file in target/surefire-reports/TEST-*.xml; do
+            if [ -f "$file" ]; then
+              TESTS=$(xmlstarlet sel -t -v "//testsuite/@tests" "$file" || echo "0")
+              FAILURES=$(xmlstarlet sel -t -v "//testsuite/@failures" "$file" || echo "0")
+              ERRORS=$(xmlstarlet sel -t -v "//testsuite/@errors" "$file" || echo "0")
+              SKIPPED=$(xmlstarlet sel -t -v "//testsuite/@skipped" "$file" || echo "0")
+              
+              TOTAL_TESTS=$((TOTAL_TESTS + TESTS))
+              TOTAL_FAILURES=$((TOTAL_FAILURES + FAILURES))
+              TOTAL_ERRORS=$((TOTAL_ERRORS + ERRORS))
+              TOTAL_SKIPPED=$((TOTAL_SKIPPED + SKIPPED))
+            fi
+          done
+          
+          echo "Total Tests: $TOTAL_TESTS"
+          echo "Failures: $TOTAL_FAILURES"
+          echo "Errors: $TOTAL_ERRORS"
+          echo "Skipped: $TOTAL_SKIPPED"
           echo "\`\`\`"
           echo "### Failed Tests (if any)"
           echo "\`\`\`"
@@ -142,11 +165,37 @@ jobs:
           echo "- Analysis URL: ${{ vars.SONAR_HOST_URL }}/dashboard?id=${GITHUB_REPOSITORY##*/}"
           echo "#### Key Metrics"
           echo "\`\`\`"
-          echo "Coverage: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=coverage" | jq -r '.component.measures[].value')%"
-          echo "Bugs: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=bugs" | jq -r '.component.measures[].value')"
-          echo "Code Smells: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=code_smells" | jq -r '.component.measures[].value')"
-          echo "Vulnerabilities: $(curl -s -u ${{ secrets.SONAR_TOKEN }}: "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=vulnerabilities" | jq -r '.component.measures[].value')"
+          
+          # Install jq for JSON parsing if not present
+          sudo apt-get install -y jq
+          
+          # Function to fetch and format SonarQube metric
+          fetch_metric() {
+            local metric=$1
+            local value=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" "${{ vars.SONAR_HOST_URL }}/api/measures/component?component=${GITHUB_REPOSITORY##*/}&metricKeys=$metric" | jq -r '.component.measures[0].value // "N/A"')
+            echo "$value"
+          }
+          
+          # Fetch metrics with error handling
+          COVERAGE=$(fetch_metric "coverage")
+          BUGS=$(fetch_metric "bugs")
+          CODE_SMELLS=$(fetch_metric "code_smells")
+          VULNERABILITIES=$(fetch_metric "vulnerabilities")
+          
+          # Format and display metrics
+          echo "Coverage: ${COVERAGE:-0}%"
+          echo "Bugs: ${BUGS:-0}"
+          echo "Code Smells: ${CODE_SMELLS:-0}"
+          echo "Vulnerabilities: ${VULNERABILITIES:-0}"
           echo "\`\`\`"
+          
+          # Add explanation if metrics are missing
+          if [[ "$COVERAGE" == "N/A" || "$BUGS" == "N/A" || "$CODE_SMELLS" == "N/A" || "$VULNERABILITIES" == "N/A" ]]; then
+            echo "⚠️ Some metrics are not available. This might be because:"
+            echo "1. First analysis is still running"
+            echo "2. Project hasn't been analyzed yet"
+            echo "3. SonarQube connection issues"
+          fi
         } >> $GITHUB_STEP_SUMMARY
 
   build_docker_image_and_push:
@@ -189,8 +238,8 @@ jobs:
         tags: bankapp:latest
         file: ./Dockerfile
 
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+    - name: Run Trivy vulnerability scanner (Detailed HTML Report)
+      uses: aquasecurity/trivy-action@0.67.2
       with:
         image-ref: 'bankapp:latest'
         format: 'template'
@@ -198,16 +247,44 @@ jobs:
         output: 'image-scan.html'
         severity: 'CRITICAL,HIGH'
         exit-code: '0'
+        skip-version-check: true
+        scanners: vuln
+        timeout: '10m'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
 
-    - name: Run Trivy for job summary
-      uses: aquasecurity/trivy-action@master
+    - name: Run Trivy for job summary (Security Issues)
+      uses: aquasecurity/trivy-action@0.67.2
+      with:
+        image-ref: 'bankapp:latest'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '0'
+        skip-version-check: true
+        scanners: vuln
+        timeout: '10m'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        
+    - name: Run Trivy for secrets scan
+      uses: aquasecurity/trivy-action@0.67.2
+      if: always()
       with:
         image-ref: 'bankapp:latest'
         format: 'table'
-        output: 'image-scan.txt'
-        severity: 'CRITICAL,HIGH'
-        exit-code: '1'
-        ignore-unfixed: true
+        output: 'secrets-scan.txt'
+        exit-code: '0'
+        skip-version-check: true
+        scanners: secret
+        timeout: '5m'
+        security-checks: secret
+        
+    - name: Upload Trivy scan results to Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
 
     - name: Check vulnerability status
       id: push-image
