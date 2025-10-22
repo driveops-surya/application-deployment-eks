@@ -393,5 +393,3 @@ jobs:
           echo "- Deployed manifests from ds.yml to EKS cluster"
           echo "- Check cluster status with: kubectl get pods,svc"
         } >> $GITHUB_STEP_SUMMARY
-
-  
