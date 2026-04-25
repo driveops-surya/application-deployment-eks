@@ -1,0 +1,13 @@
+# DevOps ownership (EKS, deployment, CI/CD, Docker, configs)
+Dockerfile              @driveops-surya/devops-team
+ds.yml                  @driveops-surya/devops-team
+.github/                @driveops-surya/devops-team
+Setup-RBAC.md           @driveops-surya/devops-team
+
+# Kubernetes / deployment manifests (if added later)
+k8s/                    @driveops-surya/devops-team
+helm/                   @driveops-surya/devops-team
+
+# Maven / application code stays with Dev team
+src/                    @driveops-surya/dev-team
+pom.xml                 @driveops-surya/dev-team
