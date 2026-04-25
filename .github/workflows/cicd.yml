@@ -1,4 +1,4 @@
-name: CICDPipeline 
+name: CICDPipeline for java based applciation
 
 on:
   push:
