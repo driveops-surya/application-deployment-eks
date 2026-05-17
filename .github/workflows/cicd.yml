@@ -78,24 +78,24 @@ jobs:
         name: app-jar
         path: target/*.jar 
         
-    # - uses: actions/checkout@v4
-    #   with:
-    #     # Disabling shallow clones is recommended for improving the relevancy of reporting
-    #     fetch-depth: 0
-    # - name: SonarQube Scan
-    #   uses: SonarSource/sonarqube-scan-action@v5.0.0 # Ex: v4.1.0, See the latest version at https://github.com/marketplace/actions/official-sonarqube-scan
-    #   env:
-    #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    #     SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+    - uses: actions/checkout@v4
+      with:
+        # Disabling shallow clones is recommended for improving the relevancy of reporting
+        fetch-depth: 0
+    - name: SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@v5.0.0 # Ex: v4.1.0, See the latest version at https://github.com/marketplace/actions/official-sonarqube-scan
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
         
-    # - name: SonarQube Quality Gate check
-    #   id: sonarqube-quality-gate-check
-    #   uses: sonarsource/sonarqube-quality-gate-action@master
-    #   with:
-    #     pollingTimeoutSec: 600
-    #   env:
-    #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    #       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+    - name: SonarQube Quality Gate check
+      id: sonarqube-quality-gate-check
+      uses: sonarsource/sonarqube-quality-gate-action@master
+      with:
+        pollingTimeoutSec: 600
+      env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
 
   build_docker_image_and_push:
     permissions:
