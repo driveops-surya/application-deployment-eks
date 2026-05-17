@@ -54,7 +54,7 @@ echo "================================================="
 
 read -p "Enter AWS Access Key ID: " AWS_ACCESS_KEY_ID
 
-read -s -p "Enter AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
+read -p "Enter AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
 echo ""
 
 read -p "Enter AWS Region [ap-south-1]: " AWS_REGION
