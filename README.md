@@ -197,4 +197,34 @@ nohup ./run.sh &> /dev/null &
 ```
 ---
 
+## Step 12: Trigger GitHub Actions Workflow
+
+Go to:
+
+```text
+GitHub Repo -> Actions
+```
+
+From the left side select:
+
+```text
+cicdpipeline
+```
+
+Click:
+
+```text
+Run workflow
+```
+
+Then click:
+
+```text
+Run workflow
+```
+
+Wait for the pipeline execution to complete successfully.
+
+---
+
 # Setup Completed
