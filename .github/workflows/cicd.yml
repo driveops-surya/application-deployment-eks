@@ -101,7 +101,7 @@ jobs:
       id-token: write
       pull-requests: write
     runs-on: self-hosted
-    # needs: build_project_and_sonar_scan
+    needs: test
     steps:
     - uses: actions/checkout@v4
     - name: Download JAR artifact
