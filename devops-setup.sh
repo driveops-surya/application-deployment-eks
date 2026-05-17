@@ -121,6 +121,18 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm version
 
 # =========================================================
+# Create ECR Repository
+# =========================================================
+
+echo "================================================="
+echo "Creating ECR Repository..."
+echo "================================================="
+
+aws ecr create-repository \
+  --repository-name bankapp \
+  --region ap-south-1 || true
+
+# =========================================================
 # Install Trivy
 # =========================================================
 
