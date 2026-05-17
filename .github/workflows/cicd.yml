@@ -55,7 +55,9 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Unit Test Cases
-      run: mvn test
+      run: |
+         export MAVEN_OPTS="-Xmx384m -Xms128m"
+         mvn test -T 1
 
   build_project_and_sonar_scan:
     runs-on: self-hosted
